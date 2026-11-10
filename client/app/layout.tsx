@@ -13,8 +13,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Auth Center — auth.priyazsh.me",
-  description: "Central OAuth2/OIDC identity provider for priyazsh.me projects.",
+  title: "Sign In",
+  description: "Central OAuth2/OIDC identity provider for @priyazsh builds.",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

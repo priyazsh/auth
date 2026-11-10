@@ -40,9 +40,9 @@ export function LoginForm() {
           </svg>
         </div>
 
-        <h1 className="text-[22px] font-semibold tracking-tight">Welcome back</h1>
+        <h1 className="text-[22px] font-semibold tracking-tight">Sign in to continue</h1>
         <p className="mt-2 max-w-[26ch] text-sm leading-6 text-[var(--muted)]">
-          Sign in to continue to your account.
+          Centralized auth for @priyazsh builds
         </p>
       </div>
 
