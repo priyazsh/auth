@@ -1,0 +1,108 @@
+# =============================================================================
+# Centralized .gitignore for auth-center
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# Secrets & credentials — NEVER commit
+# -----------------------------------------------------------------------------
+# ES256 signing keys (generate per environment, keep on the server only)
+*.pem
+*.key
+*.p8
+*.p12
+*.jks
+server/config/
+
+# Local secret overrides (Google client secret, DB password, etc.)
+**/application-secret.properties
+**/application-secrets.properties
+**/application-*-secret.properties
+
+# Environment files
+.env
+.env.*
+!.env.example
+!**/.env.example
+
+# -----------------------------------------------------------------------------
+# Captured traffic / reverse-engineering artifacts
+# HAR files contain live cookies, bearer tokens and PII.
+# -----------------------------------------------------------------------------
+logs/
+*.har
+*.har.gz
+
+# -----------------------------------------------------------------------------
+# Java / Spring Boot / Maven
+# -----------------------------------------------------------------------------
+server/target/
+**/target/
+*.class
+*.jar
+*.war
+*.ear
+server/HELP.md
+.apt_generated
+.classpath
+.factorypath
+.project
+.settings/
+.springBeans
+.sts4-cache
+
+# -----------------------------------------------------------------------------
+# Node.js / Next.js
+# -----------------------------------------------------------------------------
+**/node_modules/
+client/.next/
+client/out/
+client/build/
+**/.next/
+**/out/
+**/build/
+dist/
+.vercel/
+*.tsbuildinfo
+next-env.d.ts
+.pnp
+.pnp.*
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/versions
+
+# -----------------------------------------------------------------------------
+# Tests / coverage
+# -----------------------------------------------------------------------------
+coverage/
+**/coverage/
+.nyc_output/
+
+# -----------------------------------------------------------------------------
+# IDEs / editors
+# -----------------------------------------------------------------------------
+.idea/
+*.iml
+*.iws
+*.ipr
+.vscode/
+.fleet/
+nbproject/private/
+nbbuild/
+nbdist/
+
+# -----------------------------------------------------------------------------
+# OS / editor noise
+# -----------------------------------------------------------------------------
+.DS_Store
+Thumbs.db
+desktop.ini
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+*.swp
+*.swo
+*~
