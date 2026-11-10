@@ -1,15 +1,29 @@
-import { redirect } from "next/navigation";
-import { getServerSession } from "@/lib/auth";
+
+"use client";
+
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { useAuthSession } from "@/lib/use-auth-session";
 import { SignOutButton } from "./sign-out-button";
 
-// Reads the HttpOnly session cookie, so render dynamically.
-export const instant = false;
+export default function DashboardPage() {
+  const router = useRouter();
+  const { session, loading } = useAuthSession();
 
-export default async function DashboardPage() {
-  const session = await getServerSession();
+  useEffect(() => {
+    if (!loading && !session) {
+      router.replace("/login");
+    }
+  }, [loading, session, router]);
 
-  if (!session) {
-    redirect("/login");
+  if (loading || !session) {
+    return (
+      <main className="flex min-h-dvh items-center justify-center">
+        <p className="text-sm text-[var(--muted)]">
+          Checking your session...
+        </p>
+      </main>
+    );
   }
 
   const { user } = session;
@@ -32,11 +46,14 @@ export default async function DashboardPage() {
                 {initial}
               </div>
             )}
+
             <div className="min-w-0">
               <p className="truncate text-[15px] font-semibold tracking-tight">
                 {user.name ?? "User"}
               </p>
-              <p className="truncate text-xs text-[var(--muted)]">{user.email}</p>
+              <p className="truncate text-xs text-[var(--muted)]">
+                {user.email}
+              </p>
             </div>
           </div>
 
@@ -49,13 +66,17 @@ export default async function DashboardPage() {
                 {user.id}
               </dd>
             </div>
+
             <div className="flex items-center justify-between gap-4">
               <dt className="text-[var(--muted)]">Role</dt>
               <dd className="font-medium capitalize">{user.role}</dd>
             </div>
+
             <div className="flex items-center justify-between gap-4">
               <dt className="text-[var(--muted)]">Email verified</dt>
-              <dd className="font-medium">{user.emailVerified ? "Yes" : "No"}</dd>
+              <dd className="font-medium">
+                {user.emailVerified ? "Yes" : "No"}
+              </dd>
             </div>
           </dl>
 
@@ -68,7 +89,9 @@ export default async function DashboardPage() {
         </div>
 
         <footer className="mt-12 flex flex-col items-center gap-1.5 text-center">
-          <span className="text-sm font-medium tracking-tight">Auth Center</span>
+          <span className="text-sm font-medium tracking-tight">
+            Auth Center
+          </span>
           <span className="text-[10px] font-medium uppercase tracking-[0.22em] text-[var(--muted)]">
             Secure Single Sign-On
           </span>

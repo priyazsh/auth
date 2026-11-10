@@ -21,16 +21,25 @@ type GetSessionResponse = {
 };
 
 /** Read the current Auth Center session (cookie is sent with credentials). */
+/** Read the current Auth Center session using the browser's HttpOnly cookie. */
 export async function fetchSession(): Promise<Session | null> {
-  const res = await fetch(`${API_BASE}/api/auth/get-session`, {
-    credentials: "include",
-    cache: "no-store",
-  });
-  if (!res.ok) return null;
-  const data = (await res.json()) as GetSessionResponse;
-  const session = data.session as Session;
-  if (!session || !("user" in session)) return null;
-  return session;
+  try {
+    const res = await fetch(`${API_BASE}/api/auth/get-session`, {
+      credentials: "include",
+      cache: "no-store",
+    });
+
+    if (!res.ok) return null;
+
+    const data = (await res.json()) as GetSessionResponse;
+    const session = data.session as Session;
+
+    if (!session || !("user" in session)) return null;
+
+    return session;
+  } catch {
+    return null;
+  }
 }
 
 /** Ask the backend to build a Google authorization URL. */

@@ -1,14 +1,29 @@
-import { redirect } from "next/navigation";
-import { getServerSession } from "@/lib/auth";
+
+"use client";
+
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { useAuthSession } from "@/lib/use-auth-session";
 import { LoginForm } from "./login-form";
 
-// Reads the HttpOnly session cookie, so render dynamically.
-export const instant = false;
+export default function LoginPage() {
+  const router = useRouter();
+  const { session, loading } = useAuthSession();
 
-export default async function LoginPage() {
-  const session = await getServerSession();
-  if (session) {
-    redirect("/dashboard");
+  useEffect(() => {
+    if (session) {
+      router.replace("/dashboard");
+    }
+  }, [session, router]);
+
+  if (loading || session) {
+    return (
+      <main className="flex min-h-dvh items-center justify-center">
+        <p className="text-sm text-[var(--muted)]">
+          Checking your session...
+        </p>
+      </main>
+    );
   }
 
   return (
@@ -17,7 +32,9 @@ export default async function LoginPage() {
         <LoginForm />
 
         <footer className="mt-12 flex flex-col items-center gap-1.5 text-center">
-          <span className="text-sm font-medium tracking-tight">Auth Center</span>
+          <span className="text-sm font-medium tracking-tight">
+            Auth Center
+          </span>
           <span className="text-[10px] font-medium uppercase tracking-[0.22em] text-[var(--muted)]">
             Secure Single Sign-On
           </span>
