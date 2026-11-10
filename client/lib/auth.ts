@@ -1,6 +1,12 @@
 import { cookies } from "next/headers";
 import { API_BASE, type Session } from "./api";
 
+/**
+ * Server-to-server calls should hit the backend directly instead of looping
+ * back out through the public domain / CDN. Browsers still use API_BASE.
+ */
+const SERVER_API_BASE = process.env.API_INTERNAL_BASE_URL ?? API_BASE;
+
 type GetSessionResponse = {
   session: Session | Record<string, never>;
 };
@@ -14,7 +20,7 @@ export async function getServerSession(): Promise<Session | null> {
   const cookieHeader = cookieStore.toString();
 
   try {
-    const res = await fetch(`${API_BASE}/api/auth/get-session`, {
+    const res = await fetch(`${SERVER_API_BASE}/api/auth/get-session`, {
       headers: cookieHeader ? { cookie: cookieHeader } : {},
       cache: "no-store",
     });
