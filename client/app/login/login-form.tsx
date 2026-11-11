@@ -1,9 +1,14 @@
 "use client";
 
 import { useState } from "react";
-import { startGoogleSignIn } from "@/lib/api";
+import { API_BASE, startGoogleSignIn } from "@/lib/api";
 
-export function LoginForm() {
+type LoginFormProps = {
+  requestId?: string | null;
+  clientName?: string | null;
+};
+
+export function LoginForm({ requestId, clientName }: LoginFormProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -11,6 +16,15 @@ export function LoginForm() {
     setLoading(true);
     setError(null);
     try {
+      // OAuth client flow: let the backend start Google for the parked request.
+      if (requestId) {
+        window.location.assign(
+          `${API_BASE}/oauth2/authorize/start?request_id=${encodeURIComponent(requestId)}`
+        );
+        return;
+      }
+
+      // Direct Auth Center login.
       const url = await startGoogleSignIn("/dashboard");
       window.location.assign(url);
     } catch {
@@ -40,9 +54,15 @@ export function LoginForm() {
           </svg>
         </div>
 
-        <h1 className="text-[22px] font-semibold tracking-tight">Sign in to continue</h1>
+        <h1 className="text-[22px] font-semibold tracking-tight">
+          {requestId
+            ? `Sign in to continue${clientName ? ` to ${clientName}` : ""}`
+            : "Sign in to continue"}
+        </h1>
         <p className="mt-2 max-w-[26ch] text-sm leading-6 text-[var(--muted)]">
-          Centralized auth for @priyazsh builds
+          {requestId
+            ? "You’ll return to the app after signing in."
+            : "Centralized auth for @priyazsh builds"}
         </p>
       </div>
 

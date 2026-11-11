@@ -58,6 +58,31 @@ export async function startGoogleSignIn(callbackURL = "/dashboard"): Promise<str
   return data.url;
 }
 
+export type AuthorizationRequest = {
+  clientId: string;
+  clientName: string | null;
+};
+
+/**
+ * Metadata for an OAuth authorization request parked by the backend. Used by
+ * the login page to show which app is asking. Returns null when the request is
+ * unknown or expired.
+ */
+export async function fetchAuthorizationRequest(
+  requestId: string
+): Promise<AuthorizationRequest | null> {
+  try {
+    const res = await fetch(
+      `${API_BASE}/oauth2/authorize/request?request_id=${encodeURIComponent(requestId)}`,
+      { cache: "no-store" }
+    );
+    if (!res.ok) return null;
+    return (await res.json()) as AuthorizationRequest;
+  } catch {
+    return null;
+  }
+}
+
 /** Invalidate the server-side session and clear the SESSION cookie. */
 export async function signOut(): Promise<void> {
   await fetch(`${API_BASE}/sign-out`, {

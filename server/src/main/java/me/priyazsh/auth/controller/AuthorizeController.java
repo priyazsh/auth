@@ -1,11 +1,17 @@
 package me.priyazsh.auth.controller;
 
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpSession;
 import me.priyazsh.auth.entity.OAuthClient;
+import me.priyazsh.auth.entity.User;
 import me.priyazsh.auth.repository.OAuthClientRepository;
+import me.priyazsh.auth.service.AuthorizationCodeService;
 import me.priyazsh.auth.service.CryptoService;
 import me.priyazsh.auth.service.OAuth2ClientService;
-import me.priyazsh.auth.service.PendingAuth;
-import me.priyazsh.auth.service.PendingAuthStore;
+import me.priyazsh.auth.service.PendingAuthorization;
+import me.priyazsh.auth.service.PendingAuthorizationStore;
+import me.priyazsh.auth.service.UserService;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -13,6 +19,9 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.net.URI;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
+import java.util.UUID;
 
 @RestController
 @RequestMapping("/oauth2")
@@ -21,16 +30,25 @@ public class AuthorizeController {
     private final OAuthClientRepository oAuthClientRepository;
     private final CryptoService cryptoService;
     private final OAuth2ClientService oAuth2ClientService;
-    private final PendingAuthStore pendingAuthStore;
+    private final PendingAuthorizationStore pendingAuthorizationStore;
+    private final UserService userService;
+    private final AuthorizationCodeService authorizationCodeService;
+
+    @Value("${auth.frontend-url}")
+    private String frontendUrl;
 
     public AuthorizeController(OAuthClientRepository oAuthClientRepository,
                                CryptoService cryptoService,
                                OAuth2ClientService oAuth2ClientService,
-                               PendingAuthStore pendingAuthStore) {
+                               PendingAuthorizationStore pendingAuthorizationStore,
+                               UserService userService,
+                               AuthorizationCodeService authorizationCodeService) {
         this.oAuthClientRepository = oAuthClientRepository;
         this.cryptoService = cryptoService;
         this.oAuth2ClientService = oAuth2ClientService;
-        this.pendingAuthStore = pendingAuthStore;
+        this.pendingAuthorizationStore = pendingAuthorizationStore;
+        this.userService = userService;
+        this.authorizationCodeService = authorizationCodeService;
     }
 
     /**
@@ -42,7 +60,11 @@ public class AuthorizeController {
      *     &code_challenge=...&code_challenge_method=S256
      * </pre>
      *
-     * Validates the client, then redirects the browser to Google.
+     * <p>If the browser already has an Auth Center session, a code is issued
+     * immediately and the user is sent straight back to the client (no Google).
+     * Otherwise the request is parked and the browser is sent to the Auth Center
+     * login page. Google is only started after the user clicks the login button
+     * (see {@link AuthorizeInteractionController}).</p>
      */
     @GetMapping("/authorize")
     public ResponseEntity<Void> authorize(
@@ -53,7 +75,8 @@ public class AuthorizeController {
             @RequestParam("state") String state,
             @RequestParam(value = "nonce", required = false) String nonce,
             @RequestParam("code_challenge") String codeChallenge,
-            @RequestParam(value = "code_challenge_method", defaultValue = "S256") String codeChallengeMethod) {
+            @RequestParam(value = "code_challenge_method", defaultValue = "S256") String codeChallengeMethod,
+            HttpServletRequest request) {
 
         OAuthClient client = oAuthClientRepository.findByClientId(clientId)
             .orElseThrow(() -> new IllegalArgumentException("Unknown client_id: " + clientId));
@@ -67,23 +90,49 @@ public class AuthorizeController {
         if (!"S256".equalsIgnoreCase(codeChallengeMethod)) {
             throw new IllegalArgumentException("Only code_challenge_method=S256 is supported");
         }
+
+        // Existing Auth Center session -> silent SSO, no Google round-trip.
+        HttpSession session = request.getSession(false);
+        String userId = session == null ? null : (String) session.getAttribute("userId");
+        if (userId != null) {
+            User user = findUser(userId);
+            if (user != null) {
+                String redirect = authorizationCodeService.issueAndBuildRedirect(
+                    clientId, user.getId(), redirectUri, codeChallenge, state);
+                return ResponseEntity.status(302).location(URI.create(redirect)).build();
+            }
+            session.invalidate();
+        }
+
         if (!oAuth2ClientService.isConfigured()) {
             throw new IllegalStateException("Google OAuth2 client is not configured");
         }
 
-        // Internal state protects our Google hop; the client's state is echoed back later.
-        String internalState = cryptoService.generateState();
-        String googleNonce = (nonce != null && !nonce.isBlank()) ? nonce : cryptoService.generateNonce();
-        String googleVerifier = cryptoService.generateCodeVerifier();
-        String googleChallenge = cryptoService.generateCodeChallenge(googleVerifier);
+        // No session: park the validated request and show the login page.
+        String requestId = cryptoService.generateState();
+        pendingAuthorizationStore.put(new PendingAuthorization(
+            requestId,
+            clientId,
+            client.getName(),
+            redirectUri,
+            state,
+            codeChallenge,
+            scope,
+            nonce));
 
-        pendingAuthStore.put(new PendingAuth(
-            internalState, clientId, redirectUri, state, codeChallenge,
-            googleNonce, googleVerifier, null));
+        String loginUrl = frontendUrl + "/login?request_id=" + encode(requestId);
+        return ResponseEntity.status(302).location(URI.create(loginUrl)).build();
+    }
 
-        String googleUrl = oAuth2ClientService.buildGoogleAuthorizeUrl(
-            internalState, googleNonce, googleChallenge);
+    private User findUser(String userId) {
+        try {
+            return userService.findById(UUID.fromString(userId)).orElse(null);
+        } catch (IllegalArgumentException e) {
+            return null;
+        }
+    }
 
-        return ResponseEntity.status(302).location(URI.create(googleUrl)).build();
+    private static String encode(String value) {
+        return URLEncoder.encode(value, StandardCharsets.UTF_8);
     }
 }

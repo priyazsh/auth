@@ -3,10 +3,8 @@ package me.priyazsh.auth.controller;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpSession;
 import me.priyazsh.auth.dto.GoogleUserInfo;
-import me.priyazsh.auth.entity.AuthorizationCode;
 import me.priyazsh.auth.entity.User;
-import me.priyazsh.auth.repository.AuthorizationCodeRepository;
-import me.priyazsh.auth.service.CryptoService;
+import me.priyazsh.auth.service.AuthorizationCodeService;
 import me.priyazsh.auth.service.OAuth2ClientService;
 import me.priyazsh.auth.service.PendingAuth;
 import me.priyazsh.auth.service.PendingAuthStore;
@@ -19,34 +17,28 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.net.URI;
-import java.net.URLEncoder;
-import java.nio.charset.StandardCharsets;
-import java.time.Instant;
 import java.util.Map;
 
 @RestController
 @RequestMapping("/oauth2")
 public class CallbackController {
 
-    private final AuthorizationCodeRepository authorizationCodeRepository;
     private final UserService userService;
     private final OAuth2ClientService oAuth2ClientService;
     private final PendingAuthStore pendingAuthStore;
-    private final CryptoService cryptoService;
+    private final AuthorizationCodeService authorizationCodeService;
 
     @Value("${auth.frontend-url}")
     private String frontendUrl;
 
-    public CallbackController(AuthorizationCodeRepository authorizationCodeRepository,
-                              UserService userService,
+    public CallbackController(UserService userService,
                               OAuth2ClientService oAuth2ClientService,
                               PendingAuthStore pendingAuthStore,
-                              CryptoService cryptoService) {
-        this.authorizationCodeRepository = authorizationCodeRepository;
+                              AuthorizationCodeService authorizationCodeService) {
         this.userService = userService;
         this.oAuth2ClientService = oAuth2ClientService;
         this.pendingAuthStore = pendingAuthStore;
-        this.cryptoService = cryptoService;
+        this.authorizationCodeService = authorizationCodeService;
     }
 
     /**
@@ -91,19 +83,12 @@ public class CallbackController {
 
         // OAuth client flow: issue a one-time authorization code and bounce back.
         if (pending.getClientId() != null) {
-            String authCode = cryptoService.generateState();
-            AuthorizationCode stored = new AuthorizationCode(
-                authCode,
+            String redirect = authorizationCodeService.issueAndBuildRedirect(
                 pending.getClientId(),
                 user.getId(),
                 pending.getRedirectUri(),
                 pending.getCodeChallenge(),
-                Instant.now().plusSeconds(300));
-            authorizationCodeRepository.save(stored);
-
-            String redirect = pending.getRedirectUri()
-                + "?code=" + encode(authCode)
-                + "&state=" + encode(pending.getClientState() == null ? "" : pending.getClientState());
+                pending.getClientState());
             return ResponseEntity.status(302).location(URI.create(redirect)).build();
         }
 
@@ -118,9 +103,5 @@ public class CallbackController {
             redirect = frontendUrl + (callback.startsWith("/") ? callback : "/" + callback);
         }
         return ResponseEntity.status(302).location(URI.create(redirect)).build();
-    }
-
-    private static String encode(String value) {
-        return URLEncoder.encode(value, StandardCharsets.UTF_8);
     }
 }
